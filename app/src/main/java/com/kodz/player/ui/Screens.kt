@@ -1,5 +1,5 @@
 package com.kodz.player.ui
-
+ 
 import android.content.Intent
 import android.net.Uri
 import android.widget.Toast
@@ -87,11 +87,11 @@ import com.kodz.player.data.isAdult
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
-
+ 
 private val Placeholder = ColorPainter(KChip)
-
+ 
 // ---------------------------------------------------------------- raiz
-
+ 
 @Composable
 fun App(vm: AppViewModel) {
     val ctx = LocalContext.current
@@ -114,7 +114,7 @@ fun App(vm: AppViewModel) {
         }
     }
 }
-
+ 
 @Composable
 fun Splash() {
     Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
@@ -125,19 +125,19 @@ fun Splash() {
         }
     }
 }
-
+ 
 // ---------------------------------------------------------------- login
-
+ 
 @Composable
 fun LoginScreen(vm: AppViewModel) {
     var route by remember { mutableIntStateOf(vm.store.route.coerceIn(0, ROUTES.lastIndex)) }
     var user by remember { mutableStateOf(vm.store.user) }
     var pass by remember { mutableStateOf(vm.store.pass) }
-
+ 
     fun go() {
         if (user.isNotBlank() && pass.isNotBlank() && !vm.busy) vm.login(route, user, pass)
     }
-
+ 
     Box(
         Modifier
             .fillMaxSize()
@@ -190,9 +190,9 @@ fun LoginScreen(vm: AppViewModel) {
         }
     }
 }
-
+ 
 // ---------------------------------------------------------------- principal
-
+ 
 @Composable
 fun MainScreen(vm: AppViewModel) {
     BackHandler(enabled = vm.tab != AppTab.Canais) { vm.tab = AppTab.Canais }
@@ -225,7 +225,7 @@ fun MainScreen(vm: AppViewModel) {
         }
     }
 }
-
+ 
 @Composable
 fun TopBar(vm: AppViewModel) {
     Row(
@@ -243,7 +243,7 @@ fun TopBar(vm: AppViewModel) {
         }
     }
 }
-
+ 
 @Composable
 fun CatalogGate(vm: AppViewModel, content: @Composable (Catalog) -> Unit) {
     val c = vm.catalog
@@ -261,7 +261,7 @@ fun CatalogGate(vm: AppViewModel, content: @Composable (Catalog) -> Unit) {
         }
     }
 }
-
+ 
 @Composable
 fun PinDialog(title: String, onDismiss: () -> Unit, onOk: (String) -> String?) {
     var code by remember { mutableStateOf("") }
@@ -294,20 +294,20 @@ fun PinDialog(title: String, onDismiss: () -> Unit, onOk: (String) -> String?) {
         dismissButton = { TextButton(onClick = onDismiss) { Text("Cancelar") } },
     )
 }
-
+ 
 // ---------------------------------------------------------------- canais
-
+ 
 @Composable
 fun ChannelsTab(vm: AppViewModel) {
     CatalogGate(vm) { cat -> ChannelsContent(vm, cat) }
 }
-
+ 
 @Composable
 fun ChannelsContent(vm: AppViewModel, cat: Catalog) {
     val cats = remember(cat) { cat.liveCategories.filter { !cat.channelsByCat[it.id].isNullOrEmpty() } }
     val selected = cats.firstOrNull { it.id == vm.liveCat } ?: cats.firstOrNull()
     var ask by remember { mutableStateOf<Category?>(null) }
-
+ 
     Column(Modifier.fillMaxSize()) {
         LazyRow(
             contentPadding = PaddingValues(12.dp),
@@ -345,7 +345,7 @@ fun ChannelsContent(vm: AppViewModel, cat: Catalog) {
             }
         }
     }
-
+ 
     ask?.let { c ->
         PinDialog("Código parental", onDismiss = { ask = null }) { code ->
             if (code == vm.pin) {
@@ -358,7 +358,7 @@ fun ChannelsContent(vm: AppViewModel, cat: Catalog) {
         }
     }
 }
-
+ 
 @Composable
 fun ChannelCard(ch: Channel, onClick: () -> Unit) {
     val shape = RoundedCornerShape(12.dp)
@@ -383,14 +383,14 @@ fun ChannelCard(ch: Channel, onClick: () -> Unit) {
         Text(ch.name, fontSize = 13.sp, maxLines = 2, overflow = TextOverflow.Ellipsis, textAlign = TextAlign.Center)
     }
 }
-
+ 
 // ---------------------------------------------------------------- filmes
-
+ 
 @Composable
 fun MoviesTab(vm: AppViewModel) {
     CatalogGate(vm) { cat -> MoviesContent(vm, cat) }
 }
-
+ 
 @Composable
 fun MoviesContent(vm: AppViewModel, cat: Catalog) {
     val cats = remember(cat) { cat.movieCategories.filter { !cat.moviesByCat[it.id].isNullOrEmpty() } }
@@ -399,7 +399,7 @@ fun MoviesContent(vm: AppViewModel, cat: Catalog) {
             ?.let { c -> cat.moviesByCat[c.id]?.firstOrNull { m -> !m.icon.isNullOrBlank() } }
     }
     var ask by remember { mutableStateOf<Category?>(null) }
-
+ 
     LazyColumn(
         Modifier.fillMaxSize(),
         contentPadding = PaddingValues(bottom = 24.dp),
@@ -431,7 +431,7 @@ fun MoviesContent(vm: AppViewModel, cat: Catalog) {
             }
         }
     }
-
+ 
     ask?.let { c ->
         PinDialog("Código parental", onDismiss = { ask = null }) { code ->
             if (code == vm.pin) {
@@ -443,7 +443,7 @@ fun MoviesContent(vm: AppViewModel, cat: Catalog) {
         }
     }
 }
-
+ 
 @Composable
 fun Hero(m: Movie, onPlay: () -> Unit) {
     Row(
@@ -472,7 +472,7 @@ fun Hero(m: Movie, onPlay: () -> Unit) {
         }
     }
 }
-
+ 
 @Composable
 fun Poster(m: Movie, onClick: () -> Unit) {
     val shape = RoundedCornerShape(10.dp)
@@ -500,7 +500,7 @@ fun Poster(m: Movie, onClick: () -> Unit) {
         )
     }
 }
-
+ 
 @Composable
 fun LockedRow(name: String, onClick: () -> Unit) {
     val shape = RoundedCornerShape(12.dp)
@@ -523,19 +523,19 @@ fun LockedRow(name: String, onClick: () -> Unit) {
         }
     }
 }
-
+ 
 // ---------------------------------------------------------------- perfil
-
+ 
 private fun fmtDate(sec: Long?): String =
     if (sec == null || sec == 0L) "Ilimitado"
     else SimpleDateFormat("dd/MM/yyyy", Locale("pt", "BR")).format(Date(sec * 1000))
-
+ 
 @Composable
 fun ProfileTab(vm: AppViewModel) {
     val ctx = LocalContext.current
     val u = vm.userInfo
     val days = u?.expDate?.takeIf { it > 0 }?.let { ((it * 1000 - System.currentTimeMillis()) / 86_400_000L).toInt() }
-
+ 
     Column(
         Modifier
             .fillMaxSize()
@@ -554,7 +554,7 @@ fun ProfileTab(vm: AppViewModel) {
             Icon(Icons.Default.Person, contentDescription = null, modifier = Modifier.size(56.dp))
         }
         Text(u?.username ?: "", fontSize = 22.sp, fontWeight = FontWeight.Bold)
-
+ 
         Column(
             Modifier
                 .widthIn(max = 480.dp)
@@ -570,7 +570,7 @@ fun ProfileTab(vm: AppViewModel) {
             InfoRow("Conexões", "${u?.activeCons ?: "0"} de ${u?.maxConnections ?: "-"}")
             InfoRow("Servidor", ROUTES[vm.store.route.coerceIn(0, ROUTES.lastIndex)].label)
         }
-
+ 
         val shape = RoundedCornerShape(16.dp)
         Column(
             Modifier
@@ -590,11 +590,11 @@ fun ProfileTab(vm: AppViewModel) {
             Text("Suporte Kodz", fontSize = 13.sp, color = Color.Gray)
             Text(SUPPORT_PHONE, fontSize = 22.sp, fontWeight = FontWeight.Bold, color = KCyan)
         }
-
+ 
         GradientButton("Sair da conta", Modifier.widthIn(max = 480.dp).fillMaxWidth()) { vm.logout() }
     }
 }
-
+ 
 @Composable
 fun InfoRow(label: String, value: String) {
     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
@@ -602,9 +602,9 @@ fun InfoRow(label: String, value: String) {
         Text(value, fontWeight = FontWeight.SemiBold)
     }
 }
-
+ 
 // ---------------------------------------------------------------- configurações
-
+ 
 @Composable
 fun Section(title: String, content: @Composable ColumnScope.() -> Unit) {
     Column(
@@ -620,11 +620,11 @@ fun Section(title: String, content: @Composable ColumnScope.() -> Unit) {
         content()
     }
 }
-
+ 
 @Composable
 fun SettingsTab(vm: AppViewModel) {
     var dialog by remember { mutableIntStateOf(0) } // 1 = criar código, 2 = desativar
-
+ 
     Column(
         Modifier
             .fillMaxSize()
@@ -641,7 +641,7 @@ fun SettingsTab(vm: AppViewModel) {
                         .fillMaxWidth()
                         .tvFocus(10.dp)
                         .clip(shape)
-                        .clickable { vm.setFormat(f) }
+                        .clickable { vm.changeFormat(f) }
                         .padding(6.dp),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
@@ -656,7 +656,7 @@ fun SettingsTab(vm: AppViewModel) {
                 color = Color.Gray,
             )
         }
-
+ 
         Section("Código parental") {
             if (vm.pin.isEmpty()) {
                 Text("Bloqueia as categorias adultas com um código de 4 dígitos.", fontSize = 13.sp, color = Color.Gray)
@@ -666,7 +666,7 @@ fun SettingsTab(vm: AppViewModel) {
                 GradientButton("Desativar código parental") { dialog = 2 }
             }
         }
-
+ 
         Section("Atualizar conteúdos") {
             Text(
                 "Reinicia a playlist: limpa o cache e baixa canais e filmes novamente do servidor.",
@@ -675,20 +675,20 @@ fun SettingsTab(vm: AppViewModel) {
             )
             GradientButton("Atualizar agora", loading = vm.loadingCatalog) { vm.refresh() }
         }
-
+ 
         Text("Kodz Player 1.0.0", fontSize = 12.sp, color = Color.Gray)
     }
-
+ 
     if (dialog == 1) {
         PinDialog("Crie um código de 4 dígitos", onDismiss = { dialog = 0 }) { code ->
-            vm.setPin(code)
+            vm.changePin(code)
             null
         }
     }
     if (dialog == 2) {
         PinDialog("Digite o código atual", onDismiss = { dialog = 0 }) { code ->
             if (code == vm.pin) {
-                vm.setPin("")
+                vm.changePin("")
                 null
             } else {
                 "Código incorreto."
@@ -696,3 +696,4 @@ fun SettingsTab(vm: AppViewModel) {
         }
     }
 }
+ 
