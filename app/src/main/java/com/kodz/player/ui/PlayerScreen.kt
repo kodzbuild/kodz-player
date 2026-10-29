@@ -54,6 +54,7 @@ import androidx.media3.common.PlaybackException
 import androidx.media3.common.Player
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.datasource.DefaultDataSource
+import androidx.media3.datasource.HttpDataSource
 import androidx.media3.datasource.DefaultHttpDataSource
 import androidx.media3.exoplayer.DefaultLoadControl
 import androidx.media3.exoplayer.DefaultRenderersFactory
@@ -106,7 +107,11 @@ fun buildPlayer(ctx: Context, client: XtreamClient, item: PlayItem, fmt: String)
         .setPrioritizeTimeOverSizeThresholds(item.live)
         .build()
  
-    val url = if (item.live) client.liveUrl(item.id, fmt) else client.movieUrl(item.id, item.ext)
+    val url = when {
+        item.live -> client.liveUrl(item.id, fmt)
+        item.series -> client.seriesUrl(item.id, item.ext)
+        else -> client.movieUrl(item.id, item.ext)
+    }
     val mediaItem = MediaItem.Builder()
         .setUri(url)
         .apply {
@@ -136,6 +141,7 @@ fun PlayerScreen(vm: AppViewModel, item: PlayItem) {
     }
     var idx by remember(item) { mutableIntStateOf(0) }
     var failed by remember(item) { mutableStateOf(false) }
+    var detail by remember(item) { mutableStateOf("") }
     var controls by remember { mutableStateOf(true) }
     val fmt = formats[idx]
  
@@ -144,6 +150,11 @@ fun PlayerScreen(vm: AppViewModel, item: PlayItem) {
     DisposableEffect(player) {
         val listener = object : Player.Listener {
             override fun onPlayerError(error: PlaybackException) {
+                val cause = error.cause
+                detail = error.errorCodeName + when (cause) {
+                    is HttpDataSource.InvalidResponseCodeException -> " (HTTP ${cause.responseCode})"
+                    else -> ""
+                }
                 if (idx < formats.lastIndex) idx++ else failed = true
             }
         }
@@ -241,6 +252,10 @@ fun PlayerScreen(vm: AppViewModel, item: PlayItem) {
                     color = Color.Gray,
                     textAlign = TextAlign.Center,
                 )
+                if (detail.isNotEmpty()) {
+                    Spacer(Modifier.height(4.dp))
+                    Text("Detalhe: $detail", fontSize = 11.sp, color = Color.Gray, textAlign = TextAlign.Center)
+                }
                 Spacer(Modifier.height(12.dp))
                 GradientButton("Voltar") { vm.playing = null }
             }
