@@ -13,6 +13,9 @@ val USER_AGENTS = listOf(
     "IPTVSmartersPro",
     "VLC/3.0.18 LibVLC/3.0.18",
     "okhttp/4.12.0",
+    "Dalvik/2.1.0 (Linux; U; Android 11; SM-G991B Build/RP1A.200720.012)",
+    "TiviMate/4.7.0 (Android 11)",
+    "Kodi/20.2 (Linux; Android 11) Android/11 Sys_CPU/aarch64 App_Bitness/64 Version/20.2-(20.2.0)",
     "Mozilla/5.0 (Linux; Android 11; Mobile) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36",
 )
 const val SUPPORT_PHONE = "1194979-3462"
@@ -43,14 +46,20 @@ data class Movie(
     val ext: String,
 )
  
+data class Series(val id: String, val name: String, val cover: String?, val categoryId: String)
+data class Episode(val id: String, val title: String, val season: Int, val number: Int, val ext: String)
+ 
 class Catalog(
     val liveCategories: List<Category>,
     val channels: List<Channel>,
     val movieCategories: List<Category>,
     val movies: List<Movie>,
+    val seriesCategories: List<Category> = emptyList(),
+    val series: List<Series> = emptyList(),
 ) {
     val channelsByCat: Map<String, List<Channel>> = channels.groupBy { it.categoryId }
     val moviesByCat: Map<String, List<Movie>> = movies.groupBy { it.categoryId }
+    val seriesByCat: Map<String, List<Series>> = series.groupBy { it.categoryId }
 }
  
 class AuthFailed(msg: String) : Exception(msg)
@@ -153,6 +162,9 @@ class XtreamClient(baseUrl: String, val user: String, val pass: String) {
  
     fun movieUrl(id: String, ext: String): String =
         "$base/movie/${enc(user)}/${enc(pass)}/$id.$ext"
+ 
+    fun seriesUrl(id: String, ext: String): String =
+        "$base/series/${enc(user)}/${enc(pass)}/$id.$ext"
 }
  
 private fun arr(s: String): JSONArray = try {
@@ -194,6 +206,59 @@ fun parseMovies(s: String): List<Movie> {
             ext = o.str("container_extension").ifBlank { "mkv" },
         )
     }
+}
+ 
+fun parseSeries(s: String): List<Series> {
+    val a = arr(s)
+    return List(a.length()) { i ->
+        val o = a.getJSONObject(i)
+        Series(
+            id = o.str("series_id"),
+            name = o.str("name"),
+            cover = o.str("cover").ifBlank { null },
+            categoryId = o.str("category_id"),
+        )
+    }
+}
+ 
+fun parseEpisodes(s: String): List<Episode> {
+    val root = try {
+        JSONObject(s)
+    } catch (e: Exception) {
+        return emptyList()
+    }
+    val out = mutableListOf<Episode>()
+ 
+    fun addAll(seasonHint: Int, list: JSONArray) {
+        for (i in 0 until list.length()) {
+            val o = list.optJSONObject(i) ?: continue
+            out.add(
+                Episode(
+                    id = o.str("id"),
+                    title = o.str("title").ifBlank { "Episódio ${i + 1}" },
+                    season = o.str("season").toIntOrNull() ?: seasonHint,
+                    number = o.str("episode_num").toIntOrNull() ?: (i + 1),
+                    ext = o.str("container_extension").ifBlank { "mkv" },
+                ),
+            )
+        }
+    }
+ 
+    val eps = root.opt("episodes")
+    if (eps is JSONObject) {
+        val keys = eps.keys()
+        while (keys.hasNext()) {
+            val k = keys.next()
+            val l = eps.optJSONArray(k)
+            if (l != null) addAll(k.toIntOrNull() ?: 1, l)
+        }
+    } else if (eps is JSONArray) {
+        for (i in 0 until eps.length()) {
+            val l = eps.optJSONArray(i)
+            if (l != null) addAll(i + 1, l)
+        }
+    }
+    return out.sortedWith(compareBy<Episode>({ it.season }, { it.number }))
 }
  
 private val ADULT_WORDS = listOf("adult", "adulto", "xxx", "porn", "18+", "+18", "hentai", "erotic", "erótic")
