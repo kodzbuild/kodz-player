@@ -6,6 +6,7 @@ import androidx.compose.material.icons.filled.Movie
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Tv
+import androidx.compose.material.icons.filled.VideoLibrary
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
@@ -16,15 +17,19 @@ import androidx.lifecycle.viewModelScope
 import com.kodz.player.data.AuthFailed
 import com.kodz.player.data.Catalog
 import com.kodz.player.data.Category
+import com.kodz.player.data.Episode
 import com.kodz.player.data.ROUTES
+import com.kodz.player.data.Series
 import com.kodz.player.data.Store
 import com.kodz.player.data.UserInfo
 import com.kodz.player.data.XtreamClient
 import com.kodz.player.data.describeError
 import com.kodz.player.data.isAdult
 import com.kodz.player.data.parseCats
+import com.kodz.player.data.parseEpisodes
 import com.kodz.player.data.parseChannels
 import com.kodz.player.data.parseMovies
+import com.kodz.player.data.parseSeries
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
 import kotlinx.coroutines.launch
@@ -36,11 +41,18 @@ enum class Phase { Splash, Login, Main }
 enum class AppTab(val label: String, val icon: ImageVector) {
     Canais("Canais", Icons.Default.Tv),
     Filmes("Filmes", Icons.Default.Movie),
+    Series("Séries", Icons.Default.VideoLibrary),
     Perfil("Perfil", Icons.Default.Person),
     Config("Configurações", Icons.Default.Settings),
 }
  
-data class PlayItem(val title: String, val id: String, val live: Boolean, val ext: String = "mkv")
+data class PlayItem(
+    val title: String,
+    val id: String,
+    val live: Boolean,
+    val ext: String = "mkv",
+    val series: Boolean = false,
+)
  
 class AppViewModel(app: Application) : AndroidViewModel(app) {
     val store = Store(app)
@@ -57,6 +69,10 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     var tab by mutableStateOf(AppTab.Canais)
     var liveCat by mutableStateOf<String?>(null)
     var playing by mutableStateOf<PlayItem?>(null)
+    var seriesSel by mutableStateOf<Series?>(null)
+    var episodes by mutableStateOf<List<Episode>>(emptyList())
+    var episodesLoading by mutableStateOf(false)
+    var episodesError by mutableStateOf<String?>(null)
     var message by mutableStateOf<String?>(null)
  
     var format by mutableStateOf(store.format)
@@ -110,6 +126,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         userInfo = null
         catalog = null
         playing = null
+        seriesSel = null
         liveCat = null
         unlocked.clear()
         tab = AppTab.Canais
@@ -138,15 +155,25 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
                         f.writeText(body)
                         return body
                     }
+                    // Séries são opcionais: se o servidor não tiver, segue sem elas.
+                    fun fetchOpt(action: String): String = try {
+                        fetch(action)
+                    } catch (e: Exception) {
+                        "[]"
+                    }
                     val lc = async { fetch("get_live_categories") }
                     val ls = async { fetch("get_live_streams") }
                     val mc = async { fetch("get_vod_categories") }
                     val ms = async { fetch("get_vod_streams") }
+                    val sc = async { fetchOpt("get_series_categories") }
+                    val ss = async { fetchOpt("get_series") }
                     Catalog(
                         parseCats(lc.await()),
                         parseChannels(ls.await()),
                         parseCats(mc.await()),
                         parseMovies(ms.await()),
+                        parseCats(sc.await()),
+                        parseSeries(ss.await()),
                     )
                 }
                 catalog = result
@@ -174,6 +201,32 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
             }
             loadCatalog(true)
         }
+    }
+ 
+    fun openSeries(s: Series) {
+        val c = client ?: return
+        seriesSel = s
+        episodes = emptyList()
+        episodesError = null
+        episodesLoading = true
+        viewModelScope.launch {
+            try {
+                val body = withContext(Dispatchers.IO) { c.get("get_series_info&series_id=${s.id}") }
+                val list = withContext(Dispatchers.Default) { parseEpisodes(body) }
+                if (seriesSel?.id == s.id) {
+                    episodes = list
+                    if (list.isEmpty()) episodesError = "Nenhum episódio encontrado."
+                }
+            } catch (e: Exception) {
+                episodesError = describeError(e)
+            } finally {
+                episodesLoading = false
+            }
+        }
+    }
+ 
+    fun closeSeries() {
+        seriesSel = null
     }
  
     fun changeFormat(f: String) {
