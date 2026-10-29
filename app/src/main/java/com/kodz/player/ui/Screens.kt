@@ -37,11 +37,13 @@ import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Surface
@@ -80,9 +82,11 @@ import com.kodz.player.R
 import com.kodz.player.data.Catalog
 import com.kodz.player.data.Category
 import com.kodz.player.data.Channel
+import com.kodz.player.data.Episode
 import com.kodz.player.data.Movie
 import com.kodz.player.data.ROUTES
 import com.kodz.player.data.SUPPORT_PHONE
+import com.kodz.player.data.Series
 import com.kodz.player.data.isAdult
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -103,8 +107,11 @@ fun App(vm: AppViewModel) {
     }
     Surface(Modifier.fillMaxSize(), color = KBg, contentColor = Color.White) {
         val playing = vm.playing
+        val sel = vm.seriesSel
         if (playing != null) {
             PlayerScreen(vm, playing)
+        } else if (sel != null) {
+            SeriesDetail(vm, sel)
         } else {
             when (vm.phase) {
                 Phase.Splash -> Splash()
@@ -203,6 +210,7 @@ fun MainScreen(vm: AppViewModel) {
                 when (vm.tab) {
                     AppTab.Canais -> ChannelsTab(vm)
                     AppTab.Filmes -> MoviesTab(vm)
+                    AppTab.Series -> SeriesTab(vm)
                     AppTab.Perfil -> ProfileTab(vm)
                     AppTab.Config -> SettingsTab(vm)
                 }
@@ -475,11 +483,16 @@ fun Hero(m: Movie, onPlay: () -> Unit) {
  
 @Composable
 fun Poster(m: Movie, onClick: () -> Unit) {
+    PosterCard(m.name, m.icon, onClick)
+}
+ 
+@Composable
+fun PosterCard(name: String, icon: String?, onClick: () -> Unit) {
     val shape = RoundedCornerShape(10.dp)
     Column(Modifier.width(128.dp)) {
         AsyncImage(
-            model = m.icon,
-            contentDescription = m.name,
+            model = icon,
+            contentDescription = name,
             modifier = Modifier
                 .tvFocus(10.dp)
                 .clip(shape)
@@ -492,7 +505,7 @@ fun Poster(m: Movie, onClick: () -> Unit) {
             fallback = Placeholder,
         )
         Text(
-            m.name,
+            name,
             fontSize = 12.sp,
             maxLines = 2,
             overflow = TextOverflow.Ellipsis,
@@ -521,6 +534,165 @@ fun LockedRow(name: String, onClick: () -> Unit) {
             Text(name, fontWeight = FontWeight.Bold)
             Text("Bloqueado. Toque para digitar o código.", fontSize = 12.sp, color = Color.Gray)
         }
+    }
+}
+ 
+// ---------------------------------------------------------------- séries
+ 
+@Composable
+fun SeriesTab(vm: AppViewModel) {
+    CatalogGate(vm) { cat -> SeriesContent(vm, cat) }
+}
+ 
+@Composable
+fun SeriesContent(vm: AppViewModel, cat: Catalog) {
+    val cats = remember(cat) { cat.seriesCategories.filter { !cat.seriesByCat[it.id].isNullOrEmpty() } }
+    var ask by remember { mutableStateOf<Category?>(null) }
+ 
+    LazyColumn(
+        Modifier.fillMaxSize(),
+        contentPadding = PaddingValues(vertical = 16.dp),
+        verticalArrangement = Arrangement.spacedBy(16.dp),
+    ) {
+        if (cats.isEmpty()) {
+            item {
+                Text(
+                    "Nenhuma série disponível neste servidor.",
+                    color = Color.Gray,
+                    modifier = Modifier.padding(16.dp),
+                )
+            }
+        }
+        items(cats) { c ->
+            if (vm.isLocked(c)) {
+                LockedRow(c.name) { ask = c }
+            } else {
+                Column {
+                    Text(
+                        c.name,
+                        fontSize = 18.sp,
+                        fontWeight = FontWeight.Bold,
+                        modifier = Modifier.padding(start = 16.dp, bottom = 8.dp),
+                    )
+                    LazyRow(
+                        contentPadding = PaddingValues(horizontal = 16.dp),
+                        horizontalArrangement = Arrangement.spacedBy(10.dp),
+                    ) {
+                        items(cat.seriesByCat[c.id].orEmpty()) { s ->
+                            PosterCard(s.name, s.cover) { vm.openSeries(s) }
+                        }
+                    }
+                }
+            }
+        }
+    }
+ 
+    ask?.let { c ->
+        PinDialog("Código parental", onDismiss = { ask = null }) { code ->
+            if (code == vm.pin) {
+                vm.unlocked.add(c.id)
+                null
+            } else {
+                "Código incorreto."
+            }
+        }
+    }
+}
+ 
+@Composable
+fun SeriesDetail(vm: AppViewModel, s: Series) {
+    BackHandler { vm.closeSeries() }
+    val seasons = remember(vm.episodes) { vm.episodes.map { it.season }.distinct() }
+    var season by remember(s.id) { mutableIntStateOf(-1) }
+    val current = if (season in seasons) season else seasons.firstOrNull()
+    val list = vm.episodes.filter { it.season == current }
+ 
+    Column(Modifier.fillMaxSize().background(KBg)) {
+        Row(
+            Modifier
+                .fillMaxWidth()
+                .background(Brush.verticalGradient(listOf(Color(0xFF2A1458), KBg)))
+                .padding(12.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
+            IconButton(onClick = { vm.closeSeries() }) {
+                Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Voltar")
+            }
+            AsyncImage(
+                model = s.cover,
+                contentDescription = null,
+                modifier = Modifier
+                    .width(64.dp)
+                    .aspectRatio(2f / 3f)
+                    .clip(RoundedCornerShape(8.dp)),
+                contentScale = ContentScale.Crop,
+                error = Placeholder,
+                fallback = Placeholder,
+            )
+            Text(
+                s.name,
+                fontSize = 20.sp,
+                fontWeight = FontWeight.ExtraBold,
+                maxLines = 3,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.weight(1f),
+            )
+        }
+        when {
+            vm.episodesLoading -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                CircularProgressIndicator(color = KCyan)
+            }
+            vm.episodesError != null -> Box(Modifier.fillMaxSize().padding(24.dp), contentAlignment = Alignment.Center) {
+                Text(vm.episodesError ?: "", textAlign = TextAlign.Center, color = Color.Gray)
+            }
+            else -> {
+                LazyRow(
+                    contentPadding = PaddingValues(12.dp),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    items(seasons) { n ->
+                        Pill("Temporada $n", selected = n == current) { season = n }
+                    }
+                }
+                LazyColumn(
+                    Modifier.weight(1f),
+                    contentPadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    items(list) { ep ->
+                        EpisodeRow(ep) {
+                            vm.playing = PlayItem(
+                                title = "${s.name} – T${ep.season}E${ep.number}",
+                                id = ep.id,
+                                live = false,
+                                ext = ep.ext,
+                                series = true,
+                            )
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+ 
+@Composable
+fun EpisodeRow(ep: Episode, onClick: () -> Unit) {
+    val shape = RoundedCornerShape(12.dp)
+    Row(
+        Modifier
+            .fillMaxWidth()
+            .tvFocus(12.dp)
+            .clip(shape)
+            .background(KCard)
+            .clickable(onClick = onClick)
+            .padding(14.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(12.dp),
+    ) {
+        Text("${ep.number}", fontSize = 18.sp, fontWeight = FontWeight.Bold, color = KCyan)
+        Text(ep.title, maxLines = 2, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
     }
 }
  
