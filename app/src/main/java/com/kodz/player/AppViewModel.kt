@@ -188,3 +188,4 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
  
     fun isLocked(c: Category): Boolean = pin.isNotEmpty() && isAdult(c.name) && c.id !in unlocked
 }
+ 
