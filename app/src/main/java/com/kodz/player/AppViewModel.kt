@@ -1,5 +1,5 @@
 package com.kodz.player
-
+ 
 import android.app.Application
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Movie
@@ -29,41 +29,41 @@ import kotlinx.coroutines.async
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.io.File
-
+ 
 enum class Phase { Splash, Login, Main }
-
+ 
 enum class AppTab(val label: String, val icon: ImageVector) {
     Canais("Canais", Icons.Default.Tv),
     Filmes("Filmes", Icons.Default.Movie),
     Perfil("Perfil", Icons.Default.Person),
     Config("Configurações", Icons.Default.Settings),
 }
-
+ 
 data class PlayItem(val title: String, val id: String, val live: Boolean, val ext: String = "mkv")
-
+ 
 class AppViewModel(app: Application) : AndroidViewModel(app) {
     val store = Store(app)
-
+ 
     var phase by mutableStateOf(Phase.Splash)
     var busy by mutableStateOf(false)
     var loginError by mutableStateOf<String?>(null)
     var userInfo by mutableStateOf<UserInfo?>(null)
-
+ 
     var catalog by mutableStateOf<Catalog?>(null)
     var loadingCatalog by mutableStateOf(false)
     var catalogError by mutableStateOf<String?>(null)
-
+ 
     var tab by mutableStateOf(AppTab.Canais)
     var liveCat by mutableStateOf<String?>(null)
     var playing by mutableStateOf<PlayItem?>(null)
     var message by mutableStateOf<String?>(null)
-
+ 
     var format by mutableStateOf(store.format)
     var pin by mutableStateOf(store.pin)
     val unlocked = mutableStateListOf<String>()
-
+ 
     var client: XtreamClient? = null
-
+ 
     init {
         if (store.user.isNotEmpty() && store.pass.isNotEmpty()) {
             login(store.route, store.user, store.pass)
@@ -71,7 +71,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
             phase = Phase.Login
         }
     }
-
+ 
     fun login(routeIdx: Int, user: String, pass: String) {
         viewModelScope.launch {
             busy = true
@@ -101,7 +101,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
             }
         }
     }
-
+ 
     fun logout() {
         store.clearLogin()
         clearCache()
@@ -115,13 +115,13 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         loginError = null
         phase = Phase.Login
     }
-
+ 
     private fun clearCache() {
         getApplication<Application>().cacheDir
             .listFiles { f -> f.name.startsWith("kodz_") }
             ?.forEach { it.delete() }
     }
-
+ 
     fun loadCatalog(force: Boolean) {
         val c = client ?: return
         viewModelScope.launch {
@@ -161,7 +161,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
             }
         }
     }
-
+ 
     // Reinicia a playlist: renova os dados da conta e baixa tudo de novo.
     fun refresh() {
         val c = client ?: return
@@ -174,17 +174,17 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
             loadCatalog(true)
         }
     }
-
-    fun setFormat(f: String) {
+ 
+    fun changeFormat(f: String) {
         store.format = f
         format = f
     }
-
-    fun setPin(v: String) {
+ 
+    fun changePin(v: String) {
         store.pin = v
         pin = v
         unlocked.clear()
     }
-
+ 
     fun isLocked(c: Category): Boolean = pin.isNotEmpty() && isAdult(c.name) && c.id !in unlocked
 }
