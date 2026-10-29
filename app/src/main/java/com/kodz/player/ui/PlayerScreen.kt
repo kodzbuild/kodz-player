@@ -1,7 +1,7 @@
 @file:OptIn(UnstableApi::class)
-
+ 
 package com.kodz.player.ui
-
+ 
 import android.app.Activity
 import android.content.Context
 import android.content.ContextWrapper
@@ -64,15 +64,14 @@ import androidx.media3.extractor.ts.DefaultTsPayloadReaderFactory
 import androidx.media3.ui.PlayerView
 import com.kodz.player.AppViewModel
 import com.kodz.player.PlayItem
-import com.kodz.player.data.USER_AGENT
 import com.kodz.player.data.XtreamClient
-
+ 
 tailrec fun Context.findActivity(): Activity? = when (this) {
     is Activity -> this
     is ContextWrapper -> baseContext.findActivity()
     else -> null
 }
-
+ 
 /**
  * Cria o ExoPlayer.
  *  - HLS: usa .m3u8
@@ -82,11 +81,11 @@ tailrec fun Context.findActivity(): Activity? = when (this) {
  */
 fun buildPlayer(ctx: Context, client: XtreamClient, item: PlayItem, fmt: String): ExoPlayer {
     val http = DefaultHttpDataSource.Factory()
-        .setUserAgent(USER_AGENT)
+        .setUserAgent(client.ua)
         .setAllowCrossProtocolRedirects(true)
         .setConnectTimeoutMs(15_000)
         .setReadTimeoutMs(20_000)
-
+ 
     val extractors = DefaultExtractorsFactory().apply {
         if (fmt == "MPEGTS") {
             setTsExtractorFlags(
@@ -95,7 +94,7 @@ fun buildPlayer(ctx: Context, client: XtreamClient, item: PlayItem, fmt: String)
             )
         }
     }
-
+ 
     // Buffer maior para evitar travamentos.
     val loadControl = DefaultLoadControl.Builder()
         .setBufferDurationsMs(
@@ -106,7 +105,7 @@ fun buildPlayer(ctx: Context, client: XtreamClient, item: PlayItem, fmt: String)
         )
         .setPrioritizeTimeOverSizeThresholds(item.live)
         .build()
-
+ 
     val url = if (item.live) client.liveUrl(item.id, fmt) else client.movieUrl(item.id, item.ext)
     val mediaItem = MediaItem.Builder()
         .setUri(url)
@@ -115,7 +114,7 @@ fun buildPlayer(ctx: Context, client: XtreamClient, item: PlayItem, fmt: String)
             if (item.live && fmt == "MPEGTS") setMimeType(MimeTypes.VIDEO_MP2T)
         }
         .build()
-
+ 
     return ExoPlayer.Builder(ctx)
         .setRenderersFactory(DefaultRenderersFactory(ctx).setEnableDecoderFallback(true))
         .setMediaSourceFactory(DefaultMediaSourceFactory(DefaultDataSource.Factory(ctx, http), extractors))
@@ -123,13 +122,13 @@ fun buildPlayer(ctx: Context, client: XtreamClient, item: PlayItem, fmt: String)
         .build()
         .also { it.setMediaItem(mediaItem) }
 }
-
+ 
 @Composable
 fun PlayerScreen(vm: AppViewModel, item: PlayItem) {
     val ctx = LocalContext.current
     val view = LocalView.current
     val client = vm.client ?: return
-
+ 
     // Ao vivo: começa pelo formato das configurações e, se falhar, tenta os outros.
     val formats = remember(item) {
         if (item.live) listOf(vm.format) + listOf("HLS", "TS", "MPEGTS").filter { it != vm.format }
@@ -139,9 +138,9 @@ fun PlayerScreen(vm: AppViewModel, item: PlayItem) {
     var failed by remember(item) { mutableStateOf(false) }
     var controls by remember { mutableStateOf(true) }
     val fmt = formats[idx]
-
+ 
     val player = remember(item, fmt) { buildPlayer(ctx, client, item, fmt) }
-
+ 
     DisposableEffect(player) {
         val listener = object : Player.Listener {
             override fun onPlayerError(error: PlaybackException) {
@@ -156,7 +155,7 @@ fun PlayerScreen(vm: AppViewModel, item: PlayItem) {
             player.release()
         }
     }
-
+ 
     // Pausa ao sair do app e retoma ao voltar.
     DisposableEffect(player) {
         val owner = ctx.findActivity() as? LifecycleOwner
@@ -167,7 +166,7 @@ fun PlayerScreen(vm: AppViewModel, item: PlayItem) {
         owner?.lifecycle?.addObserver(observer)
         onDispose { owner?.lifecycle?.removeObserver(observer) }
     }
-
+ 
     // Tela cheia em paisagem enquanto o player está aberto.
     DisposableEffect(Unit) {
         val act = ctx.findActivity()
@@ -181,9 +180,9 @@ fun PlayerScreen(vm: AppViewModel, item: PlayItem) {
             controller?.show(WindowInsetsCompat.Type.systemBars())
         }
     }
-
+ 
     BackHandler { vm.playing = null }
-
+ 
     Box(Modifier.fillMaxSize().background(Color.Black)) {
         AndroidView(
             modifier = Modifier.fillMaxSize(),
@@ -201,7 +200,7 @@ fun PlayerScreen(vm: AppViewModel, item: PlayItem) {
             },
             update = { it.player = player },
         )
-
+ 
         if (controls || failed) {
             Row(
                 Modifier
@@ -224,7 +223,7 @@ fun PlayerScreen(vm: AppViewModel, item: PlayItem) {
                 if (item.live) Text(fmt, fontSize = 12.sp, color = KCyan, modifier = Modifier.padding(end = 8.dp))
             }
         }
-
+ 
         if (failed) {
             Column(
                 Modifier.align(Alignment.Center).padding(24.dp),
@@ -248,3 +247,4 @@ fun PlayerScreen(vm: AppViewModel, item: PlayItem) {
         }
     }
 }
+ 
