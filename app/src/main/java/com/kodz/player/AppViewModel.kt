@@ -20,6 +20,7 @@ import com.kodz.player.data.ROUTES
 import com.kodz.player.data.Store
 import com.kodz.player.data.UserInfo
 import com.kodz.player.data.XtreamClient
+import com.kodz.player.data.describeError
 import com.kodz.player.data.isAdult
 import com.kodz.player.data.parseCats
 import com.kodz.player.data.parseChannels
@@ -94,7 +95,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
                 loginError = e.message
                 phase = Phase.Login
             } catch (e: Exception) {
-                loginError = "Falha de conexão. Verifique a internet ou tente a outra rota."
+                loginError = describeError(e)
                 phase = Phase.Login
             } finally {
                 busy = false
@@ -152,7 +153,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
                 if (force) message = "Conteúdo atualizado!"
             } catch (e: Exception) {
                 if (catalog == null) {
-                    catalogError = "Não foi possível carregar o conteúdo. Verifique a conexão."
+                    catalogError = "Não foi possível carregar o conteúdo. ${describeError(e)}"
                 } else {
                     message = "Falha ao atualizar o conteúdo."
                 }
